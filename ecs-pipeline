@@ -1,0 +1,119 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKER_REGISTRY = 'architectdevops7'
+        ECS_CLUSTER = 'node-cluster'
+        ECS_SERVICE_CLIENT = 'react-app-client'
+        ECS_SERVICE_SERVER = 'react-app-server'
+        AWS_REGION = 'us-east-1'
+        AWS_ACCESS_KEY_ID = 'AKIAYP4HU2GDWSORBPM6'
+        AWS_SECRET_ACCESS_KEY = '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'
+        TARGET_GROUP_ARN_CLIENT = 'arn:aws:elasticloadbalancing:us-east-1:583863161223:targetgroup/client-service-react-app/04693e4b9cb4a60c'
+        TARGET_GROUP_ARN_SERVER = 'arn:aws:elasticloadbalancing:us-east-1:583863161223:targetgroup/server-service-react-app/cbc6b5efe9dd2795'
+    }
+    
+    stages {
+        stage('Clone Git Repository') {
+            steps {
+                git 'https://github.com/architectdevops7/docker-ndoejs-app.git'
+            }
+        }
+        stage('Build and Push Client Images') {
+            steps {
+                dir('client') {
+                    script {
+                        def clientImageTag = "react-client:latest"
+                        sh "docker build -t ${clientImageTag} -f Dockerfile.dev ."
+                        sh "docker tag ${clientImageTag} ${DOCKER_REGISTRY}/${clientImageTag}"
+                        withDockerRegistry(credentialsId: 'docker-hub-user', url: 'https://index.docker.io/v1/') {
+                            // sh "docker login -u architectdevops7 -p ${env.docker-hub-user}"
+                            sh "docker push ${DOCKER_REGISTRY}/${clientImageTag}"
+                        }
+                        // Retrieve the image tag
+                        def clientImageTagOutput = sh(returnStdout: true, script: "docker inspect --format='{{index .RepoTags 0}}' ${DOCKER_REGISTRY}/${clientImageTag}").trim()
+                        env.CLIENT_IMAGE_TAG = clientImageTagOutput
+                        
+                    }
+                }
+            }
+        }
+        
+        stage('Build and Push Server Images') {
+            steps {
+                dir('server') {
+                    script {
+                        def serverImageTag = "react-server:latest"
+                        sh "docker build -t ${serverImageTag} -f Dockerfile.dev ."
+                        sh "docker tag ${serverImageTag} ${DOCKER_REGISTRY}/${serverImageTag}"
+                        withDockerRegistry(credentialsId: 'docker-hub-user', url: 'https://index.docker.io/v1/') {
+                            // sh "docker login -u architectdevops7 -p ${env.docker-hub-user}"
+                            sh "docker push ${DOCKER_REGISTRY}/${serverImageTag}"
+                        }
+                        // Retrieve the image tag
+                        def serverImageTagOutput = sh(returnStdout: true, script: "docker inspect --format='{{index .RepoTags 0}}' ${DOCKER_REGISTRY}/${serverImageTag}").trim()
+                        env.SERVER_IMAGE_TAG = serverImageTagOutput
+                    }
+                }
+            }
+        }
+        stage('Query to ECS cluster') {
+            steps {
+                script {
+                    def clientserviceDescription = sh(
+                        script: "aws ecs describe-services --services $ECS_SERVICE_CLIENT --cluster $ECS_CLUSTER --region $AWS_REGION --output json",
+                        returnStdout: true
+                        ).trim()
+
+                    if (clientserviceDescription){
+                        def clientserviceJson = new groovy.json.JsonSlurper().parseText(clientserviceDescription)
+                        def clientservices = clientserviceJson.services
+
+                        if (clientservices && clientservices.size() > 0){
+                            def clienttaskDefinitionArn = clientservices[0].taskDefinition
+                            env.CLIENT_TASK_DEFINITION = clienttaskDefinitionArn
+                        }else {
+                            error "Failed to retrieve task defintion ARN for services: $ECS_SERVICE_CLIENT"
+                        }
+                    } else {
+                            error "Failed to retrieve service defintion ARN for services: $ECS_SERVICE_CLIENT"
+                    }
+                    def serverserviceDescription = sh(
+                        script: "aws ecs describe-services --services $ECS_SERVICE_SERVER --cluster $ECS_CLUSTER --region $AWS_REGION --output json",
+                        returnStdout: true
+                        ).trim()
+
+                    if (serverserviceDescription){
+                        def serverserviceJson = new groovy.json.JsonSlurper().parseText(serverserviceDescription)
+                        def serverservices = serverserviceJson.services
+
+                        if (serverservices && serverservices.size() > 0){
+                            def servertaskDefinitionArn = serverservices[0].taskDefinition
+                            env.SERVER_TASK_DEFINITION = servertaskDefinitionArn
+                        }else {
+                            error "Failed to retrieve task defintion ARN for services: $ECS_SERVICE_SERVER"
+                        }
+                    } else {
+                            error "Failed to retrieve service defintion ARN for services: $ECS_SERVICE_SERVER"
+                    }
+                }
+            }
+        }
+        stage('Deploy ECS Client Service') {
+            steps {
+                script {
+                    // Update the ECS service with ALB and target group
+                    sh "aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE_CLIENT --desired-count 1 --task-definition ${CLIENT_TASK_DEFINITION} --region ${AWS_REGION} --load-balancers targetGroupArn=${TARGET_GROUP_ARN_CLIENT},containerName=react-client,containerPort=3000 --force-new-deployment"
+                }
+            }
+        }
+        stage('Deploy ECS Server Service') {
+            steps {
+                script {
+                    // Update the ECS service with ALB and target group
+                    sh "aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE_SERVER --desired-count 1 --task-definition ${SERVER_TASK_DEFINITION} --region ${AWS_REGION} --load-balancers targetGroupArn=${TARGET_GROUP_ARN_SERVER},containerName=react-server,containerPort=5000 --force-new-deployment"
+                }
+            }
+        }
+    }
+}
