@@ -7,8 +7,8 @@ pipeline {
         ECS_SERVICE_CLIENT = 'react-app-client'
         ECS_SERVICE_SERVER = 'react-app-server'
         AWS_REGION = 'us-east-1'
-        AWS_ACCESS_KEY_ID = 'AKIAYP4HU2GDWSORBPM6'
-        AWS_SECRET_ACCESS_KEY = '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'
+        AWS_ACCESS_KEY_ID = ''
+        AWS_SECRET_ACCESS_KEY = ''
         TARGET_GROUP_ARN_CLIENT = 'arn:aws:elasticloadbalancing:us-east-1:583863161223:targetgroup/client-service-react-app/04693e4b9cb4a60c'
         TARGET_GROUP_ARN_SERVER = 'arn:aws:elasticloadbalancing:us-east-1:583863161223:targetgroup/server-service-react-app/cbc6b5efe9dd2795'
     }
