@@ -2,21 +2,21 @@ pipeline {
     agent any
     
     environment {
-        DOCKER_REGISTRY = 'architectdevops7'
+        DOCKER_REGISTRY = 'jsrinu'
         ECS_CLUSTER = 'node-cluster'
         ECS_SERVICE_CLIENT = 'react-app-client'
         ECS_SERVICE_SERVER = 'react-app-server'
         AWS_REGION = 'us-east-1'
-        AWS_ACCESS_KEY_ID = ''
-        AWS_SECRET_ACCESS_KEY = ''
-        TARGET_GROUP_ARN_CLIENT = 'arn:aws:elasticloadbalancing:us-east-1:583863161223:targetgroup/client-service-react-app/04693e4b9cb4a60c'
-        TARGET_GROUP_ARN_SERVER = 'arn:aws:elasticloadbalancing:us-east-1:583863161223:targetgroup/server-service-react-app/cbc6b5efe9dd2795'
+        AWS_ACCESS_KEY_ID = 'AKIAUNFVJXBHZ72XAHI6'
+        AWS_SECRET_ACCESS_KEY = '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'
+        TARGET_GROUP_ARN_CLIENT = 'arn:aws:elasticloadbalancing:us-east-1:303175415887:targetgroup/react-app-client/71ff9414538e1794'
+        TARGET_GROUP_ARN_SERVER = 'arn:aws:elasticloadbalancing:us-east-1:303175415887:targetgroup/react-app-server/dc8288f754021cb7'
     }
     
     stages {
         stage('Clone Git Repository') {
             steps {
-                git 'https://github.com/architectdevops7/docker-ndoejs-app.git'
+                git 'https://github.com/srinunexcloud/docker-ndoejs-app.git'
             }
         }
         stage('Build and Push Client Images') {
@@ -26,8 +26,8 @@ pipeline {
                         def clientImageTag = "react-client:latest"
                         sh "docker build -t ${clientImageTag} -f Dockerfile.dev ."
                         sh "docker tag ${clientImageTag} ${DOCKER_REGISTRY}/${clientImageTag}"
-                        withDockerRegistry(credentialsId: 'docker-hub-user', url: 'https://index.docker.io/v1/') {
-                            // sh "docker login -u architectdevops7 -p ${env.docker-hub-user}"
+                        withDockerRegistry(credentialsId: 'dockerhub1', url: 'https://index.docker.io/v1/') {
+                            //  sh "docker login -u jsrinu -p ${env.docker-hub-user}"
                             sh "docker push ${DOCKER_REGISTRY}/${clientImageTag}"
                         }
                         // Retrieve the image tag
@@ -38,16 +38,15 @@ pipeline {
                 }
             }
         }
-        
-        stage('Build and Push Server Images') {
+         stage('Build and Push Server Images') {
             steps {
                 dir('server') {
                     script {
                         def serverImageTag = "react-server:latest"
                         sh "docker build -t ${serverImageTag} -f Dockerfile.dev ."
                         sh "docker tag ${serverImageTag} ${DOCKER_REGISTRY}/${serverImageTag}"
-                        withDockerRegistry(credentialsId: 'docker-hub-user', url: 'https://index.docker.io/v1/') {
-                            // sh "docker login -u architectdevops7 -p ${env.docker-hub-user}"
+                        withDockerRegistry(credentialsId: 'dockerhub1', url: 'https://index.docker.io/v1/') {
+                            // sh "docker login -u jsrinu -p ${env.docker-hub-user}"
                             sh "docker push ${DOCKER_REGISTRY}/${serverImageTag}"
                         }
                         // Retrieve the image tag
@@ -56,7 +55,7 @@ pipeline {
                     }
                 }
             }
-        }
+         }
         stage('Query to ECS cluster') {
             steps {
                 script {
