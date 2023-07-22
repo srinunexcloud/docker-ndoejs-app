@@ -39,7 +39,7 @@ const App = () => {
 
   return (
     <div>
-      <h1>CreatReadUpdateDelete - CRUD Application</h1>
+      <h1>CreatReadUpdateDelete - CRUD App</h1>
       <div>
         <input
           type="text"
